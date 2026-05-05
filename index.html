@@ -506,10 +506,38 @@ input[type="text"]   { width:140px; font-size:.875rem; }
 <div class="toast" id="toast"></div>
 
 <script>
-// ── STORES ──
-const gStore = {};
-const wStore = {};
-let goalKg   = null;
+// ── STORAGE ──
+function loadStore(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e) { return {}; }
+}
+
+function saveStore(key, obj) {
+  try {
+    localStorage.setItem(key, JSON.stringify(obj));
+    // Verify it was saved
+    const check = localStorage.getItem(key);
+    if (!check) console.warn('localStorage save failed for', key);
+  } catch(e) {
+    console.error('localStorage error:', e);
+  }
+}
+
+// Test localStorage on load
+try {
+  localStorage.setItem('ht-test', '1');
+  const ok = localStorage.getItem('ht-test') === '1';
+  localStorage.removeItem('ht-test');
+  if (!ok) alert('⚠️ Speicher nicht verfügbar – Daten können nicht gespeichert werden.');
+} catch(e) {
+  alert('⚠️ localStorage blockiert: ' + e.message);
+}
+
+const gStore = loadStore('ht-glucose');
+const wStore = loadStore('ht-weight');
+let goalKg   = parseFloat(localStorage.getItem('ht-goal')) || null;
 
 const today = new Date().toISOString().split('T')[0];
 ['g-date','w-date','w2-date'].forEach(id => {
@@ -561,6 +589,7 @@ function saveGoal() {
   const v = parseFloat(document.getElementById('goal-val').value);
   if (!v || v<30) { toast('Bitte gültiges Zielgewicht eingeben'); return; }
   goalKg = v;
+  localStorage.setItem('ht-goal', v);
   toast('Zielgewicht gespeichert: '+v+' kg');
   updateDashboard();
 }
@@ -583,6 +612,7 @@ function saveGlucose() {
   if (note   !=='') gStore[date].note    = note;
 
   toast('Blutwert gespeichert');
+  saveStore('ht-glucose', gStore);
   ['g-morning','g-midday','g-evening','g-note'].forEach(id=>document.getElementById(id).value='');
   updateDashboard();
   renderGlucoseList();
@@ -590,6 +620,7 @@ function saveGlucose() {
 
 function delGlucose(date) {
   delete gStore[date];
+  saveStore('ht-glucose', gStore);
   updateDashboard();
   renderGlucoseList();
   toast('Gelöscht');
@@ -631,6 +662,7 @@ function _saveWeight(date, val, note) {
   if (!date)       { toast('Bitte Datum auswählen'); return false; }
   if (!val || isNaN(parseFloat(val))) { toast('Bitte Gewicht eingeben'); return false; }
   wStore[date] = { date, val:parseFloat(parseFloat(val).toFixed(1)), note };
+  saveStore('ht-weight', wStore);
   updateDashboard();
   renderWeightList();
   setTimeout(()=>{ drawChart('weightChart'); drawChart('dashChart'); }, 50);
@@ -661,6 +693,7 @@ function saveWeightFromEntry() {
 
 function delWeight(date) {
   delete wStore[date];
+  saveStore('ht-weight', wStore);
   updateDashboard();
   renderWeightList();
   setTimeout(()=>{ drawChart('weightChart'); drawChart('dashChart'); }, 50);
