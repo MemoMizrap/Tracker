@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health Tracker</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; -webkit-font-smoothing:antialiased; }
+
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --label: #1a1d23;
+  --label2: #6b7280;
+  --label3: #b0b7c3;
+  --sep: #e5e7eb;
+  --blue: #1a1d23;
+  --blue-light: #f3f4f6;
+  --green: #16a34a;
+  --green-light: #f0fdf4;
+  --orange: #d97706;
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --purple: #7c3aed;
+  --purple-light: #f5f3ff;
+  --radius: 14px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+  --nav-h: 72px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--label);
+  min-height: 100vh;
+  padding-bottom: var(--nav-h);
+}
+
+.page { display:none; flex-direction:column; min-height:calc(100vh - var(--nav-h)); }
+.page.active { display:flex; }
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--sep);
+  padding: 14px 20px;
+  display: flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:10;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.topbar-title { font-size:1.0625rem; font-weight:700; letter-spacing:-.3px; }
+.topbar-sub   { font-size:0.6875rem; color:var(--label2); margin-top:1px; }
+
+.btn-export {
+  background:var(--blue); color:white; border:none; border-radius:8px;
+  padding:8px 14px; font-size:.8rem; font-weight:600; font-family:inherit; cursor:pointer;
+  transition:opacity .15s;
+}
+.btn-export:hover { opacity:.85; }
+
+.scroll { flex:1; padding:18px 16px 10px; max-width:430px; margin:0 auto; width:100%; }
+
+.sec-header { display:flex; justify-content:space-between; align-items:center; margin:20px 0 10px; padding:0 2px; }
+.sec-header:first-child { margin-top:0; }
+.sec-title { font-size:.8125rem; font-weight:700; color:var(--label); }
+
+/* ── GREETING ── */
+.greeting-card {
+  background: #1a1d23;
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 14px;
+  color: white;
+}
+.greeting-name { font-size:1.5rem; font-weight:800; letter-spacing:-.5px; margin-bottom:6px; }
+.greeting-sub  { font-size:.75rem; opacity:.65; }
+
+/* ── STAT GRID ── */
+.stat-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
+.stat-card { background:var(--surface); border-radius:var(--radius); padding:14px 12px 12px; box-shadow:var(--shadow); }
+.stat-lbl  { font-size:.6rem; font-weight:700; color:var(--label2); text-transform:uppercase; letter-spacing:.05em; margin-bottom:5px; }
+.stat-val  { font-size:1.4rem; font-weight:700; letter-spacing:-.5px; line-height:1; margin-bottom:2px; }
+.stat-val.good   { color:var(--green); }
+.stat-val.warn   { color:var(--orange); }
+.stat-val.danger { color:var(--red); }
+.stat-val.empty  { color:var(--label3); font-size:1rem; font-weight:400; }
+.stat-unit { font-size:.6rem; color:var(--label3); }
+
+/* ── WEIGHT CARDS auf Dashboard ── */
+.weight-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+.weight-card { background:var(--surface); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); }
+.wc-label { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--label2); margin-bottom:6px; }
+.wc-val   { font-size:1.75rem; font-weight:800; letter-spacing:-.5px; }
+.wc-val.current { color:var(--purple); }
+.wc-val.goal    { color:var(--green); }
+.wc-val.empty   { color:var(--label3); font-size:1.1rem; font-weight:400; }
+.wc-unit  { font-size:.75rem; color:var(--label2); font-weight:500; margin-left:2px; }
+.wc-diff  { font-size:.75rem; font-weight:600; margin-top:4px; }
+.wc-diff.down { color:var(--green); }
+.wc-diff.up   { color:var(--red); }
+.wc-diff.same { color:var(--label3); }
+
+/* ── MED CARD ── */
+.med-card {
+  background:var(--blue-light); border-radius:var(--radius);
+  padding:12px 16px; margin-bottom:14px; border-left:3px solid var(--blue);
+}
+.med-name { font-size:.8125rem; font-weight:700; color:var(--blue); margin-bottom:5px; }
+.med-tags { display:flex; gap:6px; flex-wrap:wrap; }
+.med-tag  { background:white; color:var(--blue); border-radius:5px; padding:3px 8px; font-size:.68rem; font-weight:600; }
+
+/* ── CHART CARD ── */
+.chart-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+.chart-title { font-size:.8125rem; font-weight:700; margin-bottom:4px; }
+.chart-sub   { font-size:.7rem; color:var(--label2); margin-bottom:12px; }
+.chart-wrap  { position:relative; height:140px; }
+
+/* ── WEIGHT GOAL FORM ── */
+.goal-card { background:var(--purple-light); border-radius:var(--radius); padding:14px 16px; margin-bottom:12px; border-left:3px solid var(--purple); }
+.goal-title { font-size:.8125rem; font-weight:700; color:var(--purple); margin-bottom:10px; }
+.goal-row   { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.goal-lbl   { font-size:.8125rem; color:var(--label); flex:1; font-weight:500; }
+.goal-input { font-family:inherit; font-size:.9375rem; font-weight:700; color:var(--purple); background:white; border:1.5px solid #ddd6fe; border-radius:8px; padding:7px 10px; width:80px; text-align:center; outline:none; }
+.goal-input:focus { border-color:var(--purple); }
+.goal-unit  { font-size:.8rem; color:var(--label2); }
+.btn-goal   { width:100%; background:var(--purple); color:white; border:none; border-radius:10px; padding:11px; font-family:inherit; font-size:.875rem; font-weight:600; cursor:pointer; margin-top:4px; transition:opacity .15s; }
+.btn-goal:hover { opacity:.85; }
+
+/* ── FORM CARD ── */
+.form-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; margin-bottom:12px; }
+.form-row  { display:flex; align-items:center; padding:13px 16px; border-bottom:1px solid var(--sep); gap:12px; min-height:50px; }
+.form-row:last-child { border-bottom:none; }
+.form-lbl  { flex:1; font-size:.9375rem; color:var(--label); font-weight:500; }
+.form-lbl small { display:block; font-size:.68rem; color:var(--label3); font-weight:400; margin-top:1px; }
+.form-right { display:flex; align-items:center; gap:6px; }
+
+input[type="tel"], input[type="date"], input[type="text"], input[type="number"] {
+  font-family:inherit; font-size:.9375rem; color:var(--label);
+  background:none; border:none; outline:none; text-align:right;
+}
+input[type="tel"]    { width:70px; font-weight:600; }
+input[type="number"] { width:80px; font-weight:600; }
+input[type="tel"]::placeholder, input[type="number"]::placeholder { color:var(--label3); font-weight:400; }
+input[type="text"]::placeholder { color:var(--label3); }
+input[type="date"]   { color:var(--blue); font-weight:500; }
+input[type="text"]   { width:140px; font-size:.875rem; }
+.unit-tag { font-size:.75rem; font-weight:600; color:var(--label3); background:var(--bg); padding:3px 7px; border-radius:5px; white-space:nowrap; }
+
+/* ── TABS ── */
+.tab-bar { display:flex; background:var(--bg); border-radius:10px; padding:3px; margin-bottom:14px; }
+.tab-btn { flex:1; padding:9px; font-size:.875rem; font-weight:600; border:none; border-radius:8px; cursor:pointer; font-family:inherit; background:none; color:var(--label2); transition:all .2s; }
+.tab-btn.active { background:var(--surface); color:var(--blue); box-shadow:0 1px 4px rgba(0,0,0,.1); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* ── SAVE BTN ── */
+.btn-save { width:100%; background:var(--blue); color:white; border:none; border-radius:var(--radius); padding:15px; font-family:inherit; font-size:.9375rem; font-weight:600; cursor:pointer; transition:opacity .15s,transform .1s; margin-bottom:14px; }
+.btn-save:hover  { opacity:.88; }
+.btn-save:active { transform:scale(.98); }
+
+/* ── LEGEND ── */
+.legend-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:9px 16px; display:flex; justify-content:center; gap:16px; margin-bottom:10px; }
+.legend-item { display:flex; align-items:center; gap:4px; font-size:.63rem; color:var(--label2); white-space:nowrap; }
+.legend-dot  { width:6px; height:6px; border-radius:50%; }
+.legend-dot.good   { background:var(--green); }
+.legend-dot.warn   { background:var(--orange); }
+.legend-dot.danger { background:var(--red); }
+
+/* ── ENTRY CARDS ── */
+.entry-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; margin-bottom:10px; }
+.entry-top  { display:flex; justify-content:space-between; align-items:center; padding:11px 16px; border-bottom:1px solid var(--sep); }
+.entry-date { font-size:.9375rem; font-weight:700; }
+.entry-day  { font-size:.75rem; color:var(--label2); margin-left:6px; }
+.btn-del    { background:var(--bg); border:none; color:var(--label2); cursor:pointer; font-size:.75rem; font-family:inherit; font-weight:600; padding:5px 10px; border-radius:6px; transition:all .15s; }
+.btn-del:hover { background:var(--red-light); color:var(--red); }
+.entry-vals { display:grid; grid-template-columns:1fr 1fr 1fr; }
+.entry-val  { padding:11px 8px; text-align:center; border-right:1px solid var(--sep); }
+.entry-val:last-child { border-right:none; }
+.ev-lbl     { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--label3); margin-bottom:4px; }
+.ev-num     { font-size:1.25rem; font-weight:700; letter-spacing:-.5px; }
+.ev-num.good   { color:var(--green); }
+.ev-num.warn   { color:var(--orange); }
+.ev-num.danger { color:var(--red); }
+.ev-num.empty  { color:var(--label3); font-size:.9rem; font-weight:400; }
+.ev-unit    { font-size:.58rem; color:var(--label3); margin-top:2px; }
+.entry-note { padding:8px 16px; border-top:1px solid var(--sep); font-size:.8rem; color:var(--label2); background:#fafafa; }
+
+/* ── WEIGHT LIST CARDS ── */
+.w-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; margin-bottom:10px; }
+.w-card-row { display:flex; justify-content:space-between; align-items:center; padding:13px 16px; }
+.w-date { font-size:.9375rem; font-weight:600; }
+.w-day  { font-size:.75rem; color:var(--label2); display:block; margin-top:1px; }
+.w-right { text-align:right; }
+.w-val   { font-size:1.375rem; font-weight:800; color:var(--purple); letter-spacing:-.5px; }
+.w-kg    { font-size:.8rem; color:var(--label2); }
+.w-diff  { font-size:.75rem; font-weight:600; margin-top:2px; }
+.w-diff.down { color:var(--green); }
+.w-diff.up   { color:var(--red); }
+.w-diff.same { color:var(--label3); }
+
+/* ── EMPTY ── */
+.empty { text-align:center; padding:40px 20px; color:var(--label3); background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:10px; }
+.empty-title { font-size:.9375rem; font-weight:600; color:var(--label2); margin-bottom:4px; }
+.empty p { font-size:.8125rem; line-height:1.5; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; height:var(--nav-h);
+  background:var(--surface); border-top:1px solid var(--sep);
+  display:flex; align-items:center; justify-content:space-around;
+  z-index:20; padding-bottom:env(safe-area-inset-bottom,0);
+  box-shadow:0 -2px 12px rgba(0,0,0,.06);
+}
+.nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 0; background:none; border:none; cursor:pointer; font-family:inherit; transition:all .15s; }
+.nav-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.nav-item.active .nav-icon { background:var(--blue-light); }
+.nav-icon svg { width:18px; height:18px; stroke:var(--label3); }
+.nav-item.active .nav-icon svg { stroke:var(--blue); }
+.nav-label { font-size:.6rem; font-weight:600; color:var(--label3); }
+.nav-item.active .nav-label { color:var(--blue); }
+
+/* ── TOAST ── */
+.toast { position:fixed; bottom:calc(var(--nav-h) + 14px); left:50%; transform:translateX(-50%) translateY(10px); background:rgba(26,29,35,.92); backdrop-filter:blur(12px); color:white; padding:10px 20px; border-radius:50px; font-size:.8125rem; font-weight:500; opacity:0; transition:all .28s cubic-bezier(.34,1.56,.64,1); pointer-events:none; z-index:99; white-space:nowrap; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div class="page active" id="page-dashboard">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Dashboard</div>
+      <div class="topbar-sub" id="dash-date"></div>
+    </div>
+    <button class="btn-export" onclick="downloadPDF()">Export PDF</button>
+  </div>
+  <div class="scroll">
+
+    <!-- Begrüßung -->
+    <div class="greeting-card">
+      <div class="greeting-name">Hey Mehmet!</div>
+      <div class="greeting-sub" id="greeting-sub">Heute noch keine Werte eingetragen.</div>
+    </div>
+
+    <!-- Blutzucker heute -->
+    <div class="sec-header">
+      <div class="sec-title">Blutzucker heute</div>
+      <button class="section-action" onclick="goTo('glucose')" style="font-size:.75rem;color:var(--blue);font-weight:500;background:none;border:none;cursor:pointer;font-family:inherit;">Alle anzeigen</button>
+    </div>
+    <div class="stat-grid" onclick="goTo('glucose')" style="cursor:pointer;">
+      <div class="stat-card">
+        <div class="stat-lbl">Morgens</div>
+        <div class="stat-val empty" id="d-morning">–</div>
+        <div class="stat-unit">mg/dL</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Mittags</div>
+        <div class="stat-val empty" id="d-midday">–</div>
+        <div class="stat-unit">mg/dL</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Abends</div>
+        <div class="stat-val empty" id="d-evening">–</div>
+        <div class="stat-unit">mg/dL</div>
+      </div>
+    </div>
+
+    <!-- Gewicht: Ist & Soll -->
+    <div class="sec-header">
+      <div class="sec-title">Gewicht</div>
+    </div>
+    <div class="weight-row">
+      <div class="weight-card">
+        <div class="wc-label">Ist-Gewicht</div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <div class="wc-val current empty" id="d-ist">–</div>
+          <div class="wc-unit" id="d-ist-unit"></div>
+        </div>
+        <div class="wc-diff same" id="d-wdiff"></div>
+      </div>
+      <div class="weight-card">
+        <div class="wc-label">Soll-Gewicht</div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <div class="wc-val goal empty" id="d-soll">–</div>
+          <div class="wc-unit" id="d-soll-unit"></div>
+        </div>
+        <div class="wc-diff" id="d-remaining" style="color:var(--label3)"></div>
+      </div>
+    </div>
+
+    <!-- Gewicht Diagramm -->
+    <div class="chart-card">
+      <div class="chart-title">Gewichtsverlauf</div>
+      <div class="chart-sub" id="chart-sub-dash">Noch keine Daten vorhanden</div>
+      <div class="chart-wrap">
+        <canvas id="dashChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Medikament -->
+    <div class="form-card" onclick="goTo('glucose')" style="cursor:pointer;margin-bottom:14px;">
+      <div class="form-row" style="border-bottom:none;">
+        <div class="form-lbl">
+          Metformin 1000 mg · 2× täglich
+          <small>Nach Frühstück · Nach Abendessen · 0–15 Min</small>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b0b7c3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ GEWICHT ═══ -->
+<div class="page" id="page-weight">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Gewicht</div>
+      <div class="topbar-sub">Verlauf & Ziel</div>
+    </div>
+  </div>
+  <div class="scroll">
+
+    <!-- Ziel setzen -->
+    <div class="goal-card">
+      <div class="goal-title">Zielgewicht setzen</div>
+      <div class="goal-row">
+        <div class="goal-lbl">Soll-Gewicht</div>
+        <input type="number" class="goal-input" id="goal-val" placeholder="z.B. 80" step="0.1" min="30" max="300" inputmode="decimal">
+        <span class="goal-unit">kg</span>
+      </div>
+      <button class="btn-goal" onclick="saveGoal()">Ziel speichern</button>
+    </div>
+
+    <!-- Diagramm -->
+    <div class="chart-card">
+      <div class="chart-title">Gewichtsverlauf</div>
+      <div class="chart-sub" id="chart-sub-weight">Trage mindestens 2 Einträge ein</div>
+      <div class="chart-wrap">
+        <canvas id="weightChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Neuer Eintrag -->
+    <div class="sec-header">
+      <div class="sec-title">Neuer Eintrag</div>
+    </div>
+    <div class="form-card">
+      <div class="form-row">
+        <div class="form-lbl">Datum</div>
+        <div class="form-right"><input type="date" id="w-date"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-lbl">Gewicht <small>In Kilogramm</small></div>
+        <div class="form-right">
+          <input type="number" id="w-val" placeholder="–" step="0.1" min="0" max="300" inputmode="decimal">
+          <span class="unit-tag">kg</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-lbl">Notiz</div>
+        <div class="form-right"><input type="text" id="w-note" placeholder="Optional"></div>
+      </div>
+    </div>
+    <button class="btn-save" onclick="saveWeight()">Speichern</button>
+
+    <!-- Verlauf -->
+    <div class="sec-header"><div class="sec-title">Verlauf</div></div>
+    <div id="weight-list"></div>
+
+  </div>
+</div>
+
+<!-- ═══ EINTRAG ═══ -->
+<div class="page" id="page-entry">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Eintrag</div>
+      <div class="topbar-sub">Werte erfassen</div>
+    </div>
+  </div>
+  <div class="scroll">
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-bw-btn"     onclick="switchTab('bw')">Blutwert</button>
+      <button class="tab-btn"        id="tab-weight2-btn" onclick="switchTab('weight2')">Gewicht</button>
+    </div>
+
+    <!-- BLUTWERT TAB -->
+    <div class="tab-panel active" id="tab-bw">
+      <div class="form-card">
+        <div class="form-row">
+          <div class="form-lbl">Datum</div>
+          <div class="form-right"><input type="date" id="g-date"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-lbl">Morgens <small>Nüchtern · vor dem Frühstück</small></div>
+          <div class="form-right">
+            <input type="tel" id="g-morning" placeholder="–" inputmode="numeric" pattern="[0-9]*">
+            <span class="unit-tag">mg/dL</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-lbl">Mittags <small>2 Std. nach dem Essen</small></div>
+          <div class="form-right">
+            <input type="tel" id="g-midday" placeholder="–" inputmode="numeric" pattern="[0-9]*">
+            <span class="unit-tag">mg/dL</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-lbl">Abends <small>2 Std. nach dem Essen</small></div>
+          <div class="form-right">
+            <input type="tel" id="g-evening" placeholder="–" inputmode="numeric" pattern="[0-9]*">
+            <span class="unit-tag">mg/dL</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-lbl">Notiz</div>
+          <div class="form-right"><input type="text" id="g-note" placeholder="Optional"></div>
+        </div>
+      </div>
+      <button class="btn-save" onclick="saveGlucose()">Speichern</button>
+    </div>
+
+    <!-- GEWICHT TAB (shortcut) -->
+    <div class="tab-panel" id="tab-weight2">
+      <div class="form-card">
+        <div class="form-row">
+          <div class="form-lbl">Datum</div>
+          <div class="form-right"><input type="date" id="w2-date"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-lbl">Gewicht <small>In Kilogramm</small></div>
+          <div class="form-right">
+            <input type="number" id="w2-val" placeholder="–" step="0.1" min="0" max="300" inputmode="decimal">
+            <span class="unit-tag">kg</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-lbl">Notiz</div>
+          <div class="form-right"><input type="text" id="w2-note" placeholder="Optional"></div>
+        </div>
+      </div>
+      <button class="btn-save" onclick="saveWeightFromEntry()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BLUTZUCKER ═══ -->
+<div class="page" id="page-glucose">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Blutzucker</div>
+      <div class="topbar-sub">Alle Messwerte</div>
+    </div>
+  </div>
+  <div class="scroll">
+
+    <div class="legend-card">
+      <div class="legend-item"><div class="legend-dot good"></div>Gut &lt;140 mg/dL</div>
+      <div class="legend-item"><div class="legend-dot warn"></div>Erhöht 140–180</div>
+      <div class="legend-item"><div class="legend-dot danger"></div>Hoch &gt;180</div>
+    </div>
+
+    <div id="glucose-list"></div>
+  </div>
+</div>
+
+<!-- ═══ BOTTOM NAV ═══ -->
+<nav class="bottom-nav">
+  <button class="nav-item active" id="nav-dashboard" onclick="goTo('dashboard')">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+    </div>
+    <span class="nav-label">Dashboard</span>
+  </button>
+  <button class="nav-item" id="nav-glucose" onclick="goTo('glucose')">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2C6 2 4 8 4 12a8 8 0 0016 0c0-4-2-10-8-10z"/>
+        <path d="M12 12v4M10 14h4"/>
+      </svg>
+    </div>
+    <span class="nav-label">Blutzucker</span>
+  </button>
+  <button class="nav-item" id="nav-weight" onclick="goTo('weight')">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-6"/>
+      </svg>
+    </div>
+    <span class="nav-label">Gewicht</span>
+  </button>
+  <button class="nav-item" id="nav-entry" onclick="goTo('entry')">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+    </div>
+    <span class="nav-label">Eintrag</span>
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STORES ──
+const gStore = {};
+const wStore = {};
+let goalKg   = null;
+
+const today = new Date().toISOString().split('T')[0];
+['g-date','w-date','w2-date'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.value = today;
+});
+
+document.getElementById('dash-date').textContent =
+  new Date(today+'T12:00:00').toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long'});
+
+// ── HELPERS ──
+function getColor(v) {
+  if (v==null) return 'empty';
+  return v<140?'good':v<=180?'warn':'danger';
+}
+function fmtDate(s) {
+  return new Date(s+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtDay(s) {
+  return new Date(s+'T12:00:00').toLocaleDateString('de-DE',{weekday:'long'});
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ── NAVIGATION ──
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('nav-'+page).classList.add('active');
+  if (page==='weight' || page==='dashboard') {
+    setTimeout(()=>{ drawChart('weightChart'); drawChart('dashChart'); }, 50);
+  }
+}
+
+// ── TAB SWITCH ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+tab+'-btn').classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+// ── GOAL ──
+function saveGoal() {
+  const v = parseFloat(document.getElementById('goal-val').value);
+  if (!v || v<30) { toast('Bitte gültiges Zielgewicht eingeben'); return; }
+  goalKg = v;
+  toast('Zielgewicht gespeichert: '+v+' kg');
+  updateDashboard();
+}
+
+// ── GLUCOSE ──
+function saveGlucose() {
+  const date    = document.getElementById('g-date').value;
+  const morning = document.getElementById('g-morning').value.trim();
+  const midday  = document.getElementById('g-midday').value.trim();
+  const evening = document.getElementById('g-evening').value.trim();
+  const note    = document.getElementById('g-note').value.trim();
+
+  if (!date)                           { toast('Bitte Datum auswählen'); return; }
+  if (!morning && !midday && !evening) { toast('Mindestens einen Wert eingeben'); return; }
+
+  if (!gStore[date]) gStore[date] = { date, morning:null, midday:null, evening:null, note:'' };
+  if (morning!=='') gStore[date].morning = parseInt(morning.replace(/\D/g,''));
+  if (midday !=='') gStore[date].midday  = parseInt(midday.replace(/\D/g,''));
+  if (evening!=='') gStore[date].evening = parseInt(evening.replace(/\D/g,''));
+  if (note   !=='') gStore[date].note    = note;
+
+  toast('Blutwert gespeichert');
+  ['g-morning','g-midday','g-evening','g-note'].forEach(id=>document.getElementById(id).value='');
+  updateDashboard();
+  renderGlucoseList();
+}
+
+function delGlucose(date) {
+  delete gStore[date];
+  updateDashboard();
+  renderGlucoseList();
+  toast('Gelöscht');
+}
+
+function valHTML(val) {
+  const c = getColor(val);
+  if (val==null) return `<div class="ev-num empty">–</div>`;
+  return `<div class="ev-num ${c}">${val}</div><div class="ev-unit">mg/dL</div>`;
+}
+
+function renderGlucoseList() {
+  const el = document.getElementById('glucose-list');
+  const entries = Object.values(gStore).sort((a,b)=>b.date.localeCompare(a.date));
+  if (!entries.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-title">Keine Einträge</div><p>Trage Blutwerte unter "Eintrag" ein.</p></div>`;
+    return;
+  }
+  el.innerHTML = entries.map(e=>`
+    <div class="entry-card">
+      <div class="entry-top">
+        <div>
+          <span class="entry-date">${fmtDate(e.date)}</span>
+          <span class="entry-day">${fmtDay(e.date)}</span>
+        </div>
+        <button class="btn-del" onclick="delGlucose('${e.date}')">Löschen</button>
+      </div>
+      <div class="entry-vals">
+        <div class="entry-val"><div class="ev-lbl">Morgens</div>${valHTML(e.morning)}</div>
+        <div class="entry-val"><div class="ev-lbl">Mittags</div>${valHTML(e.midday)}</div>
+        <div class="entry-val"><div class="ev-lbl">Abends</div>${valHTML(e.evening)}</div>
+      </div>
+      ${e.note?`<div class="entry-note">${e.note}</div>`:''}
+    </div>`).join('');
+}
+
+// ── WEIGHT ──
+function _saveWeight(date, val, note) {
+  if (!date)       { toast('Bitte Datum auswählen'); return false; }
+  if (!val || isNaN(parseFloat(val))) { toast('Bitte Gewicht eingeben'); return false; }
+  wStore[date] = { date, val:parseFloat(parseFloat(val).toFixed(1)), note };
+  updateDashboard();
+  renderWeightList();
+  setTimeout(()=>{ drawChart('weightChart'); drawChart('dashChart'); }, 50);
+  return true;
+}
+
+function saveWeight() {
+  const date = document.getElementById('w-date').value;
+  const val  = document.getElementById('w-val').value.trim();
+  const note = document.getElementById('w-note').value.trim();
+  if (_saveWeight(date, val, note)) {
+    toast('Gewicht gespeichert');
+    document.getElementById('w-val').value = '';
+    document.getElementById('w-note').value = '';
+  }
+}
+
+function saveWeightFromEntry() {
+  const date = document.getElementById('w2-date').value;
+  const val  = document.getElementById('w2-val').value.trim();
+  const note = document.getElementById('w2-note').value.trim();
+  if (_saveWeight(date, val, note)) {
+    toast('Gewicht gespeichert');
+    document.getElementById('w2-val').value = '';
+    document.getElementById('w2-note').value = '';
+  }
+}
+
+function delWeight(date) {
+  delete wStore[date];
+  updateDashboard();
+  renderWeightList();
+  setTimeout(()=>{ drawChart('weightChart'); drawChart('dashChart'); }, 50);
+  toast('Gelöscht');
+}
+
+function renderWeightList() {
+  const el = document.getElementById('weight-list');
+  const entries = Object.values(wStore).sort((a,b)=>b.date.localeCompare(a.date));
+  if (!entries.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-title">Keine Einträge</div><p>Trage dein erstes Gewicht oben ein.</p></div>`;
+    return;
+  }
+  el.innerHTML = entries.map((e,i)=>{
+    const prev = entries[i+1];
+    let diffHtml = '';
+    if (prev) {
+      const d = (e.val - prev.val).toFixed(1);
+      const cls = d<0?'down':d>0?'up':'same';
+      const sym = d<0?'▼ ':d>0?'▲ ':'';
+      diffHtml = `<div class="w-diff ${cls}">${sym}${Math.abs(d)} kg</div>`;
+    }
+    return `
+    <div class="w-card">
+      <div class="w-card-row">
+        <div>
+          <div class="w-date">${fmtDate(e.date)}</div>
+          <span class="w-day">${fmtDay(e.date)}</span>
+          ${e.note?`<div style="font-size:.75rem;color:var(--label2);margin-top:2px">${e.note}</div>`:''}
+        </div>
+        <div class="w-right">
+          <span class="w-val">${e.val}</span><span class="w-kg"> kg</span>
+          ${diffHtml}
+          <div style="margin-top:5px"><button class="btn-del" onclick="delWeight('${e.date}')">Löschen</button></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── CHART ──
+const chartInstances = {};
+function drawChart(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const entries = Object.values(wStore).sort((a,b)=>a.date.localeCompare(b.date));
+  const ctx = canvas.getContext('2d');
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth || 300;
+  const H = 140;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  const subId = canvasId==='weightChart'?'chart-sub-weight':'chart-sub-dash';
+  const subEl = document.getElementById(subId);
+
+  if (entries.length < 1) {
+    ctx.font='12px -apple-system,sans-serif'; ctx.fillStyle='#b0b7c3'; ctx.textAlign='center';
+    ctx.fillText('Noch keine Daten', W/2, H/2);
+    if (subEl) subEl.textContent = 'Noch keine Daten vorhanden';
+    return;
+  }
+
+  if (subEl) subEl.textContent = entries.length===1 ? '1 Eintrag' : `${entries.length} Einträge`;
+
+  const data   = entries.map(e=>e.val);
+  const minV   = Math.min(...data) - 2;
+  const maxV   = Math.max(...data) + 2;
+  const pad    = {l:34,r:14,t:18,b:28};
+  const cw     = W - pad.l - pad.r;
+  const ch     = H - pad.t - pad.b;
+  const n      = data.length;
+
+  const xOf = i => n===1 ? pad.l + cw/2 : pad.l + (i/(n-1))*cw;
+  const yOf = v => pad.t + ch - (v - minV)/(maxV - minV)*ch;
+
+  // Grid
+  ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1;
+  [0,0.5,1].forEach(t=>{
+    const y = pad.t + ch*t;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cw,y); ctx.stroke();
+    const v = (maxV - (maxV-minV)*t).toFixed(1);
+    ctx.fillStyle='#b0b7c3'; ctx.font='9px -apple-system,sans-serif';
+    ctx.textAlign='right'; ctx.fillText(v, pad.l-4, y+3);
+  });
+
+  // Goal line
+  if (goalKg && goalKg>=minV && goalKg<=maxV) {
+    const gy = yOf(goalKg);
+    ctx.save();
+    ctx.strokeStyle='#16a34a'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(pad.l,gy); ctx.lineTo(pad.l+cw,gy); ctx.stroke();
+    ctx.fillStyle='#16a34a'; ctx.font='bold 8px -apple-system,sans-serif'; ctx.textAlign='left';
+    ctx.fillText('Ziel '+goalKg+' kg', pad.l+4, gy-3);
+    ctx.restore();
+  }
+
+  // Fill area
+  if (n>1) {
+    const grad = ctx.createLinearGradient(0,pad.t,0,pad.t+ch);
+    grad.addColorStop(0,'rgba(124,58,237,.18)');
+    grad.addColorStop(1,'rgba(124,58,237,0)');
+    ctx.beginPath();
+    ctx.moveTo(xOf(0),yOf(data[0]));
+    data.forEach((_,i)=>{ if(i>0) ctx.lineTo(xOf(i),yOf(data[i])); });
+    ctx.lineTo(xOf(n-1), pad.t+ch);
+    ctx.lineTo(xOf(0),   pad.t+ch);
+    ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+
+    ctx.strokeStyle='#7c3aed'; ctx.lineWidth=2; ctx.lineJoin='round';
+    ctx.beginPath();
+    data.forEach((v,i)=>{ i===0?ctx.moveTo(xOf(i),yOf(v)):ctx.lineTo(xOf(i),yOf(v)); });
+    ctx.stroke();
+  }
+
+  // Dots & labels
+  data.forEach((v,i)=>{
+    ctx.fillStyle='#7c3aed';
+    ctx.beginPath(); ctx.arc(xOf(i),yOf(v),3.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#1a1d23'; ctx.font='bold 9px -apple-system,sans-serif';
+    ctx.textAlign='center'; ctx.fillText(v, xOf(i), yOf(v)-7);
+  });
+
+  // X axis labels
+  const step = Math.max(1,Math.ceil(n/5));
+  ctx.fillStyle='#b0b7c3'; ctx.font='8px -apple-system,sans-serif'; ctx.textAlign='center';
+  entries.forEach((_,i)=>{
+    if (i%step===0 || i===n-1) {
+      const d = new Date(entries[i].date+'T12:00:00');
+      ctx.fillText(d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}), xOf(i), H-8);
+    }
+  });
+}
+
+// ── DASHBOARD UPDATE ──
+function updateDashboard() {
+  // Glucose
+  const ge = gStore[today];
+  let hasAny = false;
+  ['morning','midday','evening'].forEach(k=>{
+    const el = document.getElementById('d-'+k);
+    const v  = ge ? ge[k] : null;
+    if (v!=null) hasAny = true;
+    el.textContent = v ?? '–';
+    el.className   = 'stat-val ' + (v!=null ? getColor(v) : 'empty');
+  });
+
+  // Greeting sub
+  const grSub = document.getElementById('greeting-sub');
+  const wEntries = Object.values(wStore).sort((a,b)=>b.date.localeCompare(a.date));
+  const latest = wEntries[0];
+  if (hasAny && latest) grSub.textContent = `Blutzucker & Gewicht erfasst – weiter so!`;
+  else if (hasAny)      grSub.textContent = `Blutzucker heute eingetragen – gut gemacht!`;
+  else if (latest)      grSub.textContent = `Gewicht aktuell: ${latest.val} kg`;
+  else                  grSub.textContent = `Heute noch keine Werte eingetragen.`;
+
+  // Weight Ist
+  const istEl  = document.getElementById('d-ist');
+  const istUnit= document.getElementById('d-ist-unit');
+  const diffEl = document.getElementById('d-wdiff');
+
+  if (latest) {
+    istEl.textContent  = latest.val;
+    istEl.className    = 'wc-val current';
+    istUnit.textContent= 'kg';
+    const prev = wEntries[1];
+    if (prev) {
+      const d = (latest.val - prev.val).toFixed(1);
+      const cls = d<0?'down':d>0?'up':'same';
+      const sym = d<0?'▼ ':d>0?'▲ ':'';
+      diffEl.textContent = sym + Math.abs(d) + ' kg vs. vorher';
+      diffEl.className   = 'wc-diff '+cls;
+    } else {
+      diffEl.textContent = ''; 
+    }
+  } else {
+    istEl.textContent  = '–';
+    istEl.className    = 'wc-val current empty';
+    istUnit.textContent= '';
+    diffEl.textContent = '';
+  }
+
+  // Weight Soll
+  const sollEl  = document.getElementById('d-soll');
+  const sollUnit= document.getElementById('d-soll-unit');
+  const remEl   = document.getElementById('d-remaining');
+  if (goalKg) {
+    sollEl.textContent  = goalKg;
+    sollEl.className    = 'wc-val goal';
+    sollUnit.textContent= 'kg';
+    if (latest) {
+      const rem = (latest.val - goalKg).toFixed(1);
+      if (rem > 0)      { remEl.textContent = `Noch ${rem} kg bis Ziel`; remEl.style.color='var(--orange)'; }
+      else if (rem < 0) { remEl.textContent = `Ziel um ${Math.abs(rem)} kg übertroffen!`; remEl.style.color='var(--green)'; }
+      else              { remEl.textContent = 'Ziel erreicht!'; remEl.style.color='var(--green)'; }
+    } else remEl.textContent = '';
+  } else {
+    sollEl.textContent  = '–';
+    sollEl.className    = 'wc-val goal empty';
+    sollUnit.textContent= '';
+    remEl.textContent   = 'Ziel unter "Gewicht" setzen';
+    remEl.style.color   = 'var(--label3)';
+  }
+}
+
+// ── PDF ──
+function downloadPDF() {
+  const gEntries = Object.values(gStore).sort((a,b)=>b.date.localeCompare(a.date));
+  const wEntries = Object.values(wStore).sort((a,b)=>b.date.localeCompare(a.date));
+  if (!gEntries.length && !wEntries.length) { toast('Keine Einträge vorhanden'); return; }
+
+  const colorOf = v => v==null?'#aaa':v<140?'#16a34a':v<=180?'#d97706':'#dc2626';
+  const gRows = gEntries.map(e=>`<tr>
+    <td>${fmtDate(e.date)}</td><td>${fmtDay(e.date)}</td>
+    <td style="color:${colorOf(e.morning)};font-weight:700">${e.morning??'–'}</td>
+    <td style="color:${colorOf(e.midday)};font-weight:700">${e.midday??'–'}</td>
+    <td style="color:${colorOf(e.evening)};font-weight:700">${e.evening??'–'}</td>
+    <td>${e.note??''}</td></tr>`).join('');
+  const wRows = wEntries.map((e,i)=>{
+    const prev=wEntries[i+1];
+    const diff=prev?((e.val-prev.val)>=0?'▲ ':'▼ ')+Math.abs((e.val-prev.val).toFixed(1))+' kg':'–';
+    return `<tr><td>${fmtDate(e.date)}</td><td>${fmtDay(e.date)}</td><td style="font-weight:700;color:#7c3aed">${e.val} kg</td><td>${diff}</td><td>${e.note??''}</td></tr>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Health Protokoll – Mehmet</title>
+<style>
+  @page{size:A4 landscape;margin:16mm 20mm}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,Helvetica,sans-serif;font-size:11px;color:#1a1d23}
+  h1{font-size:18px;font-weight:800;margin-bottom:2px}
+  .sub{font-size:9px;color:#6b7280;margin-bottom:12px}
+  h2{font-size:12px;font-weight:700;margin:16px 0 6px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
+  table{width:100%;border-collapse:collapse;margin-bottom:4px}
+  th{background:#1a1d23;color:white;padding:7px 10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  td{padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:10.5px}
+  tr:nth-child(even) td{background:#f9fafb}
+  tr:last-child td{border-bottom:none}
+  .footer{margin-top:12px;font-size:8px;color:#b0b7c3}
+  .legend{display:flex;gap:14px;margin-bottom:10px;font-size:8.5px;color:#6b7280}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px;vertical-align:middle}
+</style></head><body>
+<h1>Health Protokoll – Mehmet</h1>
+<div class="sub">Metformin 1000 mg · 2× täglich · Morgens &amp; Abends nach dem Essen${goalKg?' · Zielgewicht: '+goalKg+' kg':''}</div>
+<div class="legend">
+  <span><span class="dot" style="background:#16a34a"></span>Gut &lt;140 mg/dL</span>
+  <span><span class="dot" style="background:#d97706"></span>Erhöht 140–180</span>
+  <span><span class="dot" style="background:#dc2626"></span>Hoch &gt;180</span>
+</div>
+${gRows?`<h2>Blutzucker</h2><table><thead><tr><th>Datum</th><th>Wochentag</th><th>Morgens</th><th>Mittags</th><th>Abends</th><th>Notiz</th></tr></thead><tbody>${gRows}</tbody></table>`:''}
+${wRows?`<h2>Gewicht</h2><table><thead><tr><th>Datum</th><th>Wochentag</th><th>Gewicht</th><th>Veränderung</th><th>Notiz</th></tr></thead><tbody>${wRows}</tbody></table>`:''}
+<div class="footer">Erstellt am ${new Date().toLocaleDateString('de-DE')} · Alle Angaben in mg/dL bzw. kg</div>
+<script>window.onload=()=>window.print()<\/script>
+</body></html>`;
+
+  const w = window.open('','_blank');
+  if (!w) { toast('Bitte Pop-ups erlauben'); return; }
+  w.document.write(html); w.document.close();
+  toast('PDF wird geöffnet');
+}
+
+// ── INIT ──
+updateDashboard();
+renderGlucoseList();
+renderWeightList();
+setTimeout(()=>{ drawChart('dashChart'); drawChart('weightChart'); }, 100);
+</script>
+</body>
+</html>
